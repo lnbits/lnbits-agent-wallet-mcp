@@ -2,13 +2,13 @@
 
 Tiny, scoped MCP server for LNbits `agent_wallet` runtime actions.
 
-This server deliberately does **not** call LNbits core wallet endpoints and does **not**
-need invoice/admin wallet keys. It only calls designated `agent_wallet` runtime
-endpoints. `agent_wallet` remains the security boundary: profile lookup, policy
-enforcement, wallet selection, payment execution, and audit logging all happen inside
-LNbits.
+This is the narrow Agent Wallet MCP, not the broad/generic LNbits MCP. It deliberately
+does **not** call LNbits core wallet endpoints and does **not** need invoice/admin
+wallet keys. It only calls designated `agent_wallet` runtime endpoints. `agent_wallet`
+remains the security boundary: profile lookup, policy enforcement, wallet selection,
+payment execution, and audit logging all happen inside LNbits.
 
-## tool surface
+## what it exposes
 
 The MCP surface is intentionally small:
 
@@ -23,24 +23,61 @@ The MCP surface is intentionally small:
 `claim_lnurl_withdraw` accepts an optional `amount_sats`. If omitted, the Agent Wallet
 runtime resolves the LNURL-withdraw request and uses `maxWithdrawable`.
 
-## configuration
+## required configuration
 
 Environment variables:
 
 - `LNBITS_URL` — LNbits base URL, e.g. `https://example.com`
 - `LNBITS_AGENT_TOKEN` — restricted agent/runtime token
-- `LNBITS_AGENT_PROFILE_ID` — agent_wallet profile id to scope runtime requests
-- `LNBITS_AGENT_TIMEOUT` — optional request timeout, default `30`
+- `LNBITS_AGENT_PROFILE_ID` — Agent Wallet profile id to scope runtime requests
+
+Optional environment variables:
+
+- `LNBITS_AGENT_TIMEOUT` — request timeout in seconds, default `30`
 - `LNBITS_AGENT_AUTH_HEADER` — `authorization` by default, or `x-api-key`
 - `LNBITS_AGENT_RUNTIME_BASE_PATH` — defaults to `/agent_wallet/api/v1`
 
-## run locally
+## use from git with uvx
+
+After this repo is pushed to GitHub, the intended production-style launch is:
 
 ```bash
-uv run lnbits-agent-wallet-mcp
+LNBITS_URL=https://your-lnbits.example \
+LNBITS_AGENT_TOKEN=restricted-runtime-token \
+LNBITS_AGENT_PROFILE_ID=agent-wallet-profile-id \
+uvx --from git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git \
+  lnbits-agent-wallet-mcp
+```
+
+For a pinned revision, use:
+
+```bash
+uvx --from git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git@<commit-sha> \
+  lnbits-agent-wallet-mcp
+```
+
+This is a stdio MCP server, so it normally waits for an MCP client on stdin/stdout. It
+does not print a CLI help screen.
+
+## Hermes config from git
+
+```yaml
+mcp_servers:
+  lnbits_agent_wallet:
+    command: uvx
+    args:
+      - --from
+      - git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git
+      - lnbits-agent-wallet-mcp
+    env:
+      LNBITS_URL: https://your-lnbits.example
+      LNBITS_AGENT_TOKEN: restricted-runtime-token
+      LNBITS_AGENT_PROFILE_ID: agent-wallet-profile-id
 ```
 
 ## Hermes config from a local checkout
+
+Use this while developing locally:
 
 ```yaml
 mcp_servers:
@@ -57,20 +94,10 @@ mcp_servers:
       LNBITS_AGENT_PROFILE_ID: agent-wallet-profile-id
 ```
 
-## uvx from git
+## run locally
 
-```yaml
-mcp_servers:
-  lnbits_agent_wallet:
-    command: uvx
-    args:
-      - --from
-      - git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git
-      - lnbits-agent-wallet-mcp
-    env:
-      LNBITS_URL: https://your-lnbits.example
-      LNBITS_AGENT_TOKEN: restricted-runtime-token
-      LNBITS_AGENT_PROFILE_ID: agent-wallet-profile-id
+```bash
+uv run lnbits-agent-wallet-mcp
 ```
 
 ## expected LNbits endpoints
@@ -92,3 +119,19 @@ uv run ruff check .
 uv run pytest -q
 uv build
 ```
+
+## local uvx smoke test
+
+Before pushing, you can verify the package is uvx-installable from the checkout:
+
+```bash
+timeout 3s env \
+  LNBITS_URL=https://lnbits.example.com \
+  LNBITS_AGENT_TOKEN=test-token \
+  LNBITS_AGENT_PROFILE_ID=profile-123 \
+  uvx --from file://$PWD lnbits-agent-wallet-mcp
+```
+
+Expected result: `timeout` exits with code `124` after three seconds and no error output.
+That means the package installed, the console script started, and the stdio MCP server
+waited for client input.
