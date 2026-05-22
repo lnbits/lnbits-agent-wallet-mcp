@@ -1,4 +1,4 @@
-# lnbits-agent-mcp
+# lnbits-agent-wallet-mcp
 
 Tiny, scoped MCP server for LNbits `agent_wallet` runtime actions.
 
@@ -37,7 +37,7 @@ Environment variables:
 ## run locally
 
 ```bash
-uv run lnbits-agent-mcp
+uv run lnbits-agent-wallet-mcp
 ```
 
 ## Hermes config from a local checkout
@@ -48,9 +48,9 @@ mcp_servers:
     command: uv
     args:
       - --directory
-      - /path/to/lnbits-agent-mcp
+      - /path/to/lnbits-agent-wallet-mcp
       - run
-      - lnbits-agent-mcp
+      - lnbits-agent-wallet-mcp
     env:
       LNBITS_URL: https://your-lnbits.example
       LNBITS_AGENT_TOKEN: restricted-runtime-token
@@ -65,8 +65,8 @@ mcp_servers:
     command: uvx
     args:
       - --from
-      - git+https://github.com/talvasconcelos/lnbits-agent-mcp.git
-      - lnbits-agent-mcp
+      - git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git
+      - lnbits-agent-wallet-mcp
     env:
       LNBITS_URL: https://your-lnbits.example
       LNBITS_AGENT_TOKEN: restricted-runtime-token

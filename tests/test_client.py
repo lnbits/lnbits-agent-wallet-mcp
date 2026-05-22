@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from lnbits_agent_mcp.client import AgentWalletClient
-from lnbits_agent_mcp.config import Settings
+from lnbits_agent_wallet_mcp.client import AgentWalletClient
+from lnbits_agent_wallet_mcp.config import Settings
 
 
 @pytest.fixture

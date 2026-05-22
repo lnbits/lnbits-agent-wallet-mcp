@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from lnbits_agent_mcp.server import HANDLERS, _dry_run_payment, _runtime_payment_payload
-from lnbits_agent_mcp.tools import TOOLS
+from lnbits_agent_wallet_mcp.server import HANDLERS, _dry_run_payment, _runtime_payment_payload
+from lnbits_agent_wallet_mcp.tools import TOOLS
 
 
 class StubClient:

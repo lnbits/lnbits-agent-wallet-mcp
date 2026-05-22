@@ -177,7 +177,7 @@ class LNbitsAgentMCPServer:
     """MCP server exposing only scoped agent_wallet runtime actions."""
 
     def __init__(self, client: AgentWalletClient | None = None):
-        self.server = Server("lnbits-agent-mcp")
+        self.server = Server("lnbits-agent-wallet-mcp")
         self.client = client or AgentWalletClient(get_settings())
         self._register_handlers()
 
@@ -207,7 +207,7 @@ class LNbitsAgentMCPServer:
                     read_stream,
                     write_stream,
                     InitializationOptions(
-                        server_name="lnbits-agent-mcp",
+                        server_name="lnbits-agent-wallet-mcp",
                         server_version=__version__,
                         capabilities=types.ServerCapabilities(
                             tools=types.ToolsCapability(listChanged=False),
@@ -229,7 +229,7 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     except Exception as exc:  # keep stdout clean for MCP stdio
-        print(f"lnbits-agent-mcp failed: {exc}", file=sys.stderr)
+        print(f"lnbits-agent-wallet-mcp failed: {exc}", file=sys.stderr)
         sys.exit(1)
 
 
