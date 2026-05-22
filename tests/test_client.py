@@ -32,8 +32,10 @@ async def test_runtime_paths_are_profile_scoped(settings: Settings) -> None:
 async def test_authorization_header_default(settings: Settings) -> None:
     client = AgentWalletClient(settings)
     try:
-        assert client._headers()["Authorization"] == "Bearer test-token"
-        assert "X-API-KEY" not in client._headers()
+        assert client._headers() == {
+            "Accept": "application/json",
+            "Authorization": "Bearer test-token",
+        }
     finally:
         await client.close()
 

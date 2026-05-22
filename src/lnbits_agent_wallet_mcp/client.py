@@ -28,12 +28,10 @@ class AgentWalletClient:
         )
 
     def _headers(self) -> dict[str, str]:
-        headers = {"Accept": "application/json"}
-        if self.settings.auth_header == "x-api-key":
-            headers["X-API-KEY"] = self.settings.token
-        else:
-            headers["Authorization"] = f"Bearer {self.settings.token}"
-        return headers
+        return {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {self.settings.token}",
+        }
 
     def _runtime_path(self, path: str) -> str:
         return f"{self.runtime_base}/profiles/{self.profile_id}/runtime{path}"

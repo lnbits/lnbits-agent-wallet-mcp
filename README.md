@@ -1,14 +1,10 @@
-# lnbits-agent-wallet-mcp
+# LNbits Agent Wallet MCP
 
-Tiny, scoped MCP server for LNbits `agent_wallet` runtime actions.
+A small stdio MCP server for the LNbits `agent_wallet` extension runtime API.
 
-This is the narrow Agent Wallet MCP, not the broad/generic LNbits MCP. It deliberately
-does **not** call LNbits core wallet endpoints and does **not** need invoice/admin
-wallet keys. It only calls designated `agent_wallet` runtime endpoints. `agent_wallet`
-remains the security boundary: profile lookup, policy enforcement, wallet selection,
-payment execution, and audit logging all happen inside LNbits.
+This project is intentionally narrow. It is **not** a generic LNbits wallet MCP and it does **not** use LNbits invoice/admin wallet keys. It only calls the LNbits `agent_wallet` extension's profile-scoped runtime endpoints. The `agent_wallet` extension remains the security boundary: profile lookup, ACL bearer-token authentication, policy enforcement, wallet selection, payment execution, and audit logging all happen inside LNbits.
 
-## what it exposes
+## What It Exposes
 
 The MCP surface is intentionally small:
 
@@ -16,30 +12,43 @@ The MCP surface is intentionally small:
 - `create_invoice` — request a receive invoice
 - `dry_run_payment` — validate a payment/LNURL action without executing it
 - `pay_invoice` — request payment of a BOLT11 invoice
-- `pay_lightning_address` — request payment to a lightning address
+- `pay_lightning_address` — request payment to a Lightning address
 - `claim_lnurl_withdraw` — claim an LNURL-withdraw into the bound receive wallet
 - `list_activity` — read recent agent activity/audit events
 
-`claim_lnurl_withdraw` accepts an optional `amount_sats`. If omitted, the Agent Wallet
-runtime resolves the LNURL-withdraw request and uses `maxWithdrawable`.
+`claim_lnurl_withdraw` accepts an optional `amount_sats`. If omitted, the `agent_wallet` runtime resolves the LNURL-withdraw request and uses `maxWithdrawable`.
 
-## required configuration
+## Requirements
 
-Environment variables:
+You need:
 
-- `LNBITS_URL` — LNbits base URL, e.g. `https://example.com`
-- `LNBITS_AGENT_TOKEN` — restricted agent/runtime token
-- `LNBITS_AGENT_PROFILE_ID` — Agent Wallet profile id to scope runtime requests
+1. An LNbits instance with the `agent_wallet` extension installed and configured.
+2. An `agent_wallet` profile ID for the agent you want this MCP server to use.
+3. A restricted `agent_wallet` ACL bearer token for that profile.
+4. [`uv`](https://docs.astral.sh/uv/) installed on the machine running your MCP client.
+
+## Configuration
+
+Required environment variables:
+
+- `LNBITS_URL` — LNbits base URL, for example `https://lnbits.example.com`
+- `LNBITS_AGENT_TOKEN` — restricted `agent_wallet` ACL bearer token
+- `LNBITS_AGENT_PROFILE_ID` — `agent_wallet` profile ID to scope runtime requests
 
 Optional environment variables:
 
 - `LNBITS_AGENT_TIMEOUT` — request timeout in seconds, default `30`
-- `LNBITS_AGENT_AUTH_HEADER` — `authorization` by default, or `x-api-key`
 - `LNBITS_AGENT_RUNTIME_BASE_PATH` — defaults to `/agent_wallet/api/v1`
 
-## use from git with uvx
+Authentication is always sent as:
 
-After this repo is pushed to GitHub, the intended production-style launch is:
+```http
+Authorization: Bearer <LNBITS_AGENT_TOKEN>
+```
+
+## Install From Git With uvx
+
+Use `uvx` to run the package directly from git. This keeps the project uvx-ready without requiring a manual clone or package install.
 
 ```bash
 LNBITS_URL=https://your-lnbits.example \
@@ -56,10 +65,62 @@ uvx --from git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git@<co
   lnbits-agent-wallet-mcp
 ```
 
-This is a stdio MCP server, so it normally waits for an MCP client on stdin/stdout. It
-does not print a CLI help screen.
+This is a stdio MCP server. When launched directly it waits for an MCP client on stdin/stdout; it is normal for it not to print a CLI help screen.
 
-## Hermes config from git
+## Quick Setup
+
+1. Open the LNbits `agent_wallet` extension.
+2. Create or select the agent profile you want this MCP server to use.
+3. Copy the profile ID and restricted ACL bearer token from the extension's MCP/connector output.
+4. Open your MCP client's configuration file or MCP connector UI.
+5. Add a server named `lnbits_agent_wallet` using the command, arguments, and environment variables below.
+6. Restart or reload your MCP client.
+7. Ask the client to list MCP tools. You should see tools such as `get_status`, `create_invoice`, and `pay_invoice`.
+
+## MCP Connector Configuration
+
+Most MCP clients need the same connector shape: a command, arguments, and environment variables.
+
+Use this JSON shape for clients such as Claude Desktop, Codex, OpenCode/OpenClaw, and other MCP-compatible hosts when they accept JSON server configuration:
+
+```json
+{
+  "mcpServers": {
+    "lnbits_agent_wallet": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git",
+        "lnbits-agent-wallet-mcp"
+      ],
+      "env": {
+        "LNBITS_URL": "https://your-lnbits.example",
+        "LNBITS_AGENT_TOKEN": "restricted-runtime-token",
+        "LNBITS_AGENT_PROFILE_ID": "agent-wallet-profile-id"
+      }
+    }
+  }
+}
+```
+
+Replace the three placeholder values with the values from your LNbits `agent_wallet` extension.
+
+### Claude Desktop / JSON-Based Clients
+
+Paste the JSON block above into the client's MCP server configuration. For Claude Desktop, this usually means adding it under `mcpServers` in the Claude desktop config file, then restarting Claude.
+
+### Codex / OpenCode / OpenClaw
+
+Use the same server definition if your client supports MCP JSON configuration. If the client has a UI instead of a file, enter:
+
+- Server name: `lnbits_agent_wallet`
+- Command: `uvx`
+- Arguments: `--from`, `git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git`, `lnbits-agent-wallet-mcp`
+- Environment variables: `LNBITS_URL`, `LNBITS_AGENT_TOKEN`, `LNBITS_AGENT_PROFILE_ID`
+
+### Hermes Example
+
+Hermes uses YAML configuration:
 
 ```yaml
 mcp_servers:
@@ -75,9 +136,9 @@ mcp_servers:
       LNBITS_AGENT_PROFILE_ID: agent-wallet-profile-id
 ```
 
-## Hermes config from a local checkout
+### Local Development Checkout
 
-Use this while developing locally:
+Use this only while developing from a local clone:
 
 ```yaml
 mcp_servers:
@@ -94,13 +155,7 @@ mcp_servers:
       LNBITS_AGENT_PROFILE_ID: agent-wallet-profile-id
 ```
 
-## run locally
-
-```bash
-uv run lnbits-agent-wallet-mcp
-```
-
-## expected LNbits endpoints
+## Expected LNbits Endpoints
 
 Default paths are profile-scoped and intentionally narrow:
 
@@ -112,26 +167,10 @@ Default paths are profile-scoped and intentionally narrow:
 
 The wrapper never calls `/api/v1/payments` directly.
 
-## development checks
+## Development Checks
 
 ```bash
 uv run ruff check .
 uv run pytest -q
 uv build
 ```
-
-## local uvx smoke test
-
-Before pushing, you can verify the package is uvx-installable from the checkout:
-
-```bash
-timeout 3s env \
-  LNBITS_URL=https://lnbits.example.com \
-  LNBITS_AGENT_TOKEN=test-token \
-  LNBITS_AGENT_PROFILE_ID=profile-123 \
-  uvx --from file://$PWD lnbits-agent-wallet-mcp
-```
-
-Expected result: `timeout` exits with code `124` after three seconds and no error output.
-That means the package installed, the console script started, and the stdio MCP server
-waited for client input.

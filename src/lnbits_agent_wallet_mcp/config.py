@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
-
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,10 +16,6 @@ class Settings(BaseSettings):
     token: str = Field(alias="LNBITS_AGENT_TOKEN")
     profile_id: str | None = Field(default=None, alias="LNBITS_AGENT_PROFILE_ID")
     timeout: float = Field(default=30.0, alias="LNBITS_AGENT_TIMEOUT")
-    auth_header: Literal["authorization", "x-api-key"] = Field(
-        default="authorization", alias="LNBITS_AGENT_AUTH_HEADER"
-    )
-
     runtime_base_path: str = Field(
         default="/agent_wallet/api/v1",
         alias="LNBITS_AGENT_RUNTIME_BASE_PATH",
