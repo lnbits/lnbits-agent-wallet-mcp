@@ -9,8 +9,14 @@ description = "Tiny MCP server for scoped LNbits agent_wallet runtime actions"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = { text = "MIT" }
-authors = [{ name = "LNbits" }]
+authors = [{ name = "Tal Vasconcelos" }]
 keywords = ["mcp", "lnbits", "agent-wallet", "lightning", "bitcoin"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
 dependencies = [
   "httpx>=0.25.0",
   "mcp>=1.0.0",

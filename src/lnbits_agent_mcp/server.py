@@ -19,6 +19,10 @@ from .tools import TOOLS
 ToolHandler = Callable[[AgentWalletClient, dict[str, Any]], Awaitable[Any]]
 
 
+class ToolArgumentError(ValueError):
+    """Raised when an MCP tool call is missing required arguments."""
+
+
 def _json_text(data: Any) -> list[types.TextContent]:
     return [
         types.TextContent(
@@ -28,20 +32,44 @@ def _json_text(data: Any) -> list[types.TextContent]:
     ]
 
 
+def _required_str(args: dict[str, Any], name: str) -> str:
+    value = args.get(name)
+    if not isinstance(value, str) or not value:
+        raise ToolArgumentError(f"{name} is required")
+    return value
+
+
+def _optional_positive_int(args: dict[str, Any], name: str) -> int | None:
+    value = args.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, int) or value < 1:
+        raise ToolArgumentError(f"{name} must be a positive integer")
+    return value
+
+
+def _required_positive_int(args: dict[str, Any], name: str) -> int:
+    value = _optional_positive_int(args, name)
+    if value is None:
+        raise ToolArgumentError(f"{name} is required")
+    return value
+
+
 def _runtime_payment_payload(
     *,
     action: str,
     destination: str,
-    amount_sats: int,
+    amount_sats: int | None = None,
     payment_request: str | None = None,
     comment: str | None = None,
     dry_run_id: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "action": action,
-        "amount_sats": amount_sats,
         "destination": destination,
     }
+    if amount_sats is not None:
+        payload["amount_sats"] = amount_sats
     if payment_request:
         payload["payment_request"] = payment_request
     if comment:
@@ -56,16 +84,26 @@ async def _get_status(client: AgentWalletClient, _: dict[str, Any]) -> Any:
 
 
 async def _create_invoice(client: AgentWalletClient, args: dict[str, Any]) -> Any:
-    return await client.post_runtime("/invoice", args)
+    payload = {
+        "amount_sats": _required_positive_int(args, "amount_sats"),
+    }
+    if args.get("memo"):
+        payload["memo"] = args["memo"]
+    if args.get("expiry") is not None:
+        payload["expiry"] = _required_positive_int(args, "expiry")
+    return await client.post_runtime("/invoice", payload)
 
 
 async def _dry_run_payment(client: AgentWalletClient, args: dict[str, Any]) -> Any:
     action = args.get("action") or "bolt11"
-    payment_request = args["payment_request"]
+    payment_request = _required_str(args, "payment_request")
     destination = args.get("destination") or payment_request
+    amount_sats = _optional_positive_int(args, "amount_sats")
+    if action != "lnurl_withdraw" and amount_sats is None:
+        raise ToolArgumentError("amount_sats is required unless action is lnurl_withdraw")
     payload = _runtime_payment_payload(
         action=action,
-        amount_sats=args["amount_sats"],
+        amount_sats=amount_sats,
         destination=destination,
         payment_request=payment_request,
         comment=args.get("comment"),
@@ -74,10 +112,10 @@ async def _dry_run_payment(client: AgentWalletClient, args: dict[str, Any]) -> A
 
 
 async def _pay_invoice(client: AgentWalletClient, args: dict[str, Any]) -> Any:
-    bolt11 = args["bolt11"]
+    bolt11 = _required_str(args, "bolt11")
     payload = _runtime_payment_payload(
         action="bolt11",
-        amount_sats=args["amount_sats"],
+        amount_sats=_required_positive_int(args, "amount_sats"),
         destination=bolt11,
         payment_request=bolt11,
         comment=args.get("memo"),
@@ -87,10 +125,10 @@ async def _pay_invoice(client: AgentWalletClient, args: dict[str, Any]) -> Any:
 
 
 async def _pay_lightning_address(client: AgentWalletClient, args: dict[str, Any]) -> Any:
-    address = args["lightning_address"]
+    address = _required_str(args, "lightning_address")
     payload = _runtime_payment_payload(
         action="lightning_address",
-        amount_sats=args["amount_sats"],
+        amount_sats=_required_positive_int(args, "amount_sats"),
         destination=address,
         payment_request=address,
         comment=args.get("comment"),
@@ -99,8 +137,29 @@ async def _pay_lightning_address(client: AgentWalletClient, args: dict[str, Any]
     return await client.post_runtime("/pay", payload)
 
 
+async def _claim_lnurl_withdraw(client: AgentWalletClient, args: dict[str, Any]) -> Any:
+    lnurl = _required_str(args, "lnurl")
+    payload = _runtime_payment_payload(
+        action="lnurl_withdraw",
+        amount_sats=_optional_positive_int(args, "amount_sats"),
+        destination=lnurl,
+        payment_request=lnurl,
+        comment=args.get("comment"),
+    )
+    return await client.post_runtime("/pay", payload)
+
+
 async def _list_activity(client: AgentWalletClient, args: dict[str, Any]) -> Any:
-    return await client.get_activity(args)
+    params: dict[str, int] = {}
+    limit = args.get("limit")
+    offset = args.get("offset")
+    if limit is not None:
+        params["limit"] = _required_positive_int(args, "limit")
+    if offset is not None:
+        if not isinstance(offset, int) or offset < 0:
+            raise ToolArgumentError("offset must be a non-negative integer")
+        params["offset"] = offset
+    return await client.get_activity(params or None)
 
 
 HANDLERS: dict[str, ToolHandler] = {
@@ -109,6 +168,7 @@ HANDLERS: dict[str, ToolHandler] = {
     "dry_run_payment": _dry_run_payment,
     "pay_invoice": _pay_invoice,
     "pay_lightning_address": _pay_lightning_address,
+    "claim_lnurl_withdraw": _claim_lnurl_withdraw,
     "list_activity": _list_activity,
 }
 
@@ -135,7 +195,7 @@ class LNbitsAgentMCPServer:
             try:
                 result = await handler(self.client, arguments or {})
                 return _json_text(result)
-            except AgentWalletError as exc:
+            except (AgentWalletError, ToolArgumentError) as exc:
                 return _json_text({"error": str(exc)})
             except Exception as exc:  # noqa: BLE001 - MCP errors must be serialized
                 return _json_text({"error": f"Unexpected MCP server error: {exc}"})

@@ -14,6 +14,19 @@ def _schema(properties: dict[str, Any], required: list[str] | None = None) -> di
     }
 
 
+PAYMENT_ACTIONS = ["bolt11", "lnurl_pay", "lightning_address", "lnurl_withdraw"]
+
+_AMOUNT_SATS_SCHEMA = {
+    "type": "integer",
+    "minimum": 1,
+    "description": "Amount in satoshis. Optional for LNURL-withdraw; defaults to maxWithdrawable.",
+}
+
+_DRY_RUN_ID_SCHEMA = {
+    "type": "string",
+    "description": "Approved dry-run activity id, when required by policy.",
+}
+
 TOOLS: list[Tool] = [
     Tool(
         name="get_status",
@@ -52,23 +65,19 @@ TOOLS: list[Tool] = [
     Tool(
         name="dry_run_payment",
         description=(
-            "Validate a payment request against agent_wallet policy without "
+            "Validate a payment or LNURL-withdraw against agent_wallet policy without "
             "executing it. Use before spending when policy requires dry runs."
         ),
         inputSchema=_schema(
             {
                 "payment_request": {
                     "type": "string",
-                    "description": "BOLT11 invoice, LNURL, or lightning address.",
+                    "description": "BOLT11 invoice, LNURL, LNURL-withdraw, or lightning address.",
                 },
-                "amount_sats": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "description": "Payment amount in satoshis.",
-                },
+                "amount_sats": _AMOUNT_SATS_SCHEMA,
                 "action": {
                     "type": "string",
-                    "enum": ["bolt11", "lnurl_pay", "lightning_address", "lnurl_withdraw"],
+                    "enum": PAYMENT_ACTIONS,
                     "default": "bolt11",
                 },
                 "destination": {
@@ -77,7 +86,7 @@ TOOLS: list[Tool] = [
                 },
                 "comment": {"type": "string"},
             },
-            ["payment_request", "amount_sats"],
+            ["payment_request"],
         ),
     ),
     Tool(
@@ -95,10 +104,7 @@ TOOLS: list[Tool] = [
                     "description": "Invoice amount in satoshis.",
                 },
                 "memo": {"type": "string", "description": "Optional internal memo."},
-                "dry_run_id": {
-                    "type": "string",
-                    "description": "Approved dry-run activity id, when required by policy.",
-                },
+                "dry_run_id": _DRY_RUN_ID_SCHEMA,
             },
             ["bolt11", "amount_sats"],
         ),
@@ -117,12 +123,27 @@ TOOLS: list[Tool] = [
                 },
                 "amount_sats": {"type": "integer", "minimum": 1},
                 "comment": {"type": "string"},
-                "dry_run_id": {
-                    "type": "string",
-                    "description": "Approved dry-run activity id, when required by policy.",
-                },
+                "dry_run_id": _DRY_RUN_ID_SCHEMA,
             },
             ["lightning_address", "amount_sats"],
+        ),
+    ),
+    Tool(
+        name="claim_lnurl_withdraw",
+        description=(
+            "Claim an LNURL-withdraw into the bound agent_wallet receive wallet. "
+            "The amount is optional; when omitted, agent_wallet uses maxWithdrawable."
+        ),
+        inputSchema=_schema(
+            {
+                "lnurl": {
+                    "type": "string",
+                    "description": "LNURL-withdraw string or lightning:LNURL... URI.",
+                },
+                "amount_sats": _AMOUNT_SATS_SCHEMA,
+                "comment": {"type": "string", "description": "Optional invoice memo override."},
+            },
+            ["lnurl"],
         ),
     ),
     Tool(
