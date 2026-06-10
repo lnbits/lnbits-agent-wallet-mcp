@@ -4,6 +4,7 @@ import asyncio
 import json
 import sys
 from collections.abc import Awaitable, Callable
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from typing import Any
 
 from mcp import types
@@ -55,6 +56,57 @@ def _required_positive_int(args: dict[str, Any], name: str) -> int:
     return value
 
 
+def _bolt11_amount_sats(payment_request: str) -> int | None:
+    invoice = payment_request.strip()
+    if invoice.lower().startswith("lightning:"):
+        invoice = invoice.split(":", 1)[1]
+    invoice = invoice.lower()
+    if not invoice.startswith("ln") or "1" not in invoice:
+        return None
+
+    hrp = invoice.split("1", 1)[0]
+    currency = "lnbc"
+    if not hrp.startswith(currency):
+        return None
+    amount = hrp[len(currency) :]
+    if not amount:
+        return None
+
+    unit = amount[-1]
+    if unit in {"m", "u", "n", "p"}:
+        digits = amount[:-1]
+        multipliers = {
+            "m": Decimal("100000"),
+            "u": Decimal("100"),
+            "n": Decimal("0.1"),
+            "p": Decimal("0.0001"),
+        }
+        multiplier = multipliers[unit]
+    else:
+        digits = amount
+        multiplier = Decimal("100000000")
+    if not digits:
+        return None
+
+    try:
+        sats = Decimal(digits) * multiplier
+    except InvalidOperation as exc:
+        raise ToolArgumentError("invalid BOLT11 amount") from exc
+    return int(sats.to_integral_value(rounding=ROUND_CEILING))
+
+
+def _amount_sats_or_bolt11(args: dict[str, Any], payment_request: str) -> int:
+    explicit = _optional_positive_int(args, "amount_sats")
+    if explicit is not None:
+        return explicit
+    parsed = _bolt11_amount_sats(payment_request)
+    if parsed is None:
+        raise ToolArgumentError("amount_sats is required when the BOLT11 amount cannot be inferred")
+    if parsed < 1:
+        raise ToolArgumentError("BOLT11 invoice amount must be at least 1 sat")
+    return parsed
+
+
 def _runtime_payment_payload(
     *,
     action: str,
@@ -99,7 +151,9 @@ async def _dry_run_payment(client: AgentWalletClient, args: dict[str, Any]) -> A
     payment_request = _required_str(args, "payment_request")
     destination = args.get("destination") or payment_request
     amount_sats = _optional_positive_int(args, "amount_sats")
-    if action != "lnurl_withdraw" and amount_sats is None:
+    if action == "bolt11" and amount_sats is None:
+        amount_sats = _amount_sats_or_bolt11(args, payment_request)
+    elif action != "lnurl_withdraw" and amount_sats is None:
         raise ToolArgumentError("amount_sats is required unless action is lnurl_withdraw")
     payload = _runtime_payment_payload(
         action=action,
@@ -115,7 +169,7 @@ async def _pay_invoice(client: AgentWalletClient, args: dict[str, Any]) -> Any:
     bolt11 = _required_str(args, "bolt11")
     payload = _runtime_payment_payload(
         action="bolt11",
-        amount_sats=_required_positive_int(args, "amount_sats"),
+        amount_sats=_amount_sats_or_bolt11(args, bolt11),
         destination=bolt11,
         payment_request=bolt11,
         comment=args.get("memo"),

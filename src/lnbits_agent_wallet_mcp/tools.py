@@ -106,7 +106,7 @@ TOOLS: list[Tool] = [
                 "memo": {"type": "string", "description": "Optional internal memo."},
                 "dry_run_id": _DRY_RUN_ID_SCHEMA,
             },
-            ["bolt11", "amount_sats"],
+            ["bolt11"],
         ),
     ),
     Tool(
