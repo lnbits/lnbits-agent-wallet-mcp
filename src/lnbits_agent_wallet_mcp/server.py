@@ -135,6 +135,10 @@ async def _get_status(client: AgentWalletClient, _: dict[str, Any]) -> Any:
     return await client.get_runtime("/status")
 
 
+async def _get_balance(client: AgentWalletClient, _: dict[str, Any]) -> Any:
+    return await client.get_runtime("/balance")
+
+
 async def _create_invoice(client: AgentWalletClient, args: dict[str, Any]) -> Any:
     payload = {
         "amount_sats": _required_positive_int(args, "amount_sats"),
@@ -203,6 +207,11 @@ async def _claim_lnurl_withdraw(client: AgentWalletClient, args: dict[str, Any])
     return await client.post_runtime("/pay", payload)
 
 
+async def _check_payment(client: AgentWalletClient, args: dict[str, Any]) -> Any:
+    checking_id = _required_str(args, "checking_id")
+    return await client.get_runtime(f"/payments/{checking_id}")
+
+
 async def _list_activity(client: AgentWalletClient, args: dict[str, Any]) -> Any:
     params: dict[str, int] = {}
     limit = args.get("limit")
@@ -218,11 +227,13 @@ async def _list_activity(client: AgentWalletClient, args: dict[str, Any]) -> Any
 
 HANDLERS: dict[str, ToolHandler] = {
     "get_status": _get_status,
+    "get_balance": _get_balance,
     "create_invoice": _create_invoice,
     "dry_run_payment": _dry_run_payment,
     "pay_invoice": _pay_invoice,
     "pay_lightning_address": _pay_lightning_address,
     "claim_lnurl_withdraw": _claim_lnurl_withdraw,
+    "check_payment": _check_payment,
     "list_activity": _list_activity,
 }
 

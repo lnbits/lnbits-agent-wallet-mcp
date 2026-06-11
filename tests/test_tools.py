@@ -14,6 +14,10 @@ class StubClient:
         self.calls.append((path, payload))
         return {"ok": True, "payload": payload}
 
+    async def get_runtime(self, path: str, params: dict | None = None) -> dict:
+        self.calls.append((path, params or {}))
+        return {"ok": True, "path": path, "params": params}
+
 
 def test_all_tools_have_handlers() -> None:
     names = {tool.name for tool in TOOLS}
@@ -23,13 +27,28 @@ def test_all_tools_have_handlers() -> None:
 def test_tool_surface_is_small_and_curated() -> None:
     assert {tool.name for tool in TOOLS} == {
         "get_status",
+        "get_balance",
         "create_invoice",
         "dry_run_payment",
         "pay_invoice",
         "pay_lightning_address",
         "claim_lnurl_withdraw",
+        "check_payment",
         "list_activity",
     }
+
+
+@pytest.mark.asyncio
+async def test_check_payment_calls_runtime_payment_status_endpoint() -> None:
+    client = StubClient()
+
+    response = await HANDLERS["check_payment"](  # type: ignore[arg-type]
+        client,
+        {"checking_id": "internal_abc123"},
+    )
+
+    assert response["ok"] is True
+    assert client.calls == [("/payments/internal_abc123", {})]
 
 
 def test_payment_payload_matches_agent_wallet_runtime_model() -> None:

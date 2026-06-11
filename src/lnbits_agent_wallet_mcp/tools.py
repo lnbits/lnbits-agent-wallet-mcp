@@ -37,6 +37,14 @@ TOOLS: list[Tool] = [
         inputSchema=_schema({}),
     ),
     Tool(
+        name="get_balance",
+        description=(
+            "Get the bound agent_wallet receive/spend wallet balance from LNbits. "
+            "Does not mutate state."
+        ),
+        inputSchema=_schema({}),
+    ),
+    Tool(
         name="create_invoice",
         description=(
             "Create a Lightning receive invoice through agent_wallet. "
@@ -144,6 +152,22 @@ TOOLS: list[Tool] = [
                 "comment": {"type": "string", "description": "Optional invoice memo override."},
             },
             ["lnurl"],
+        ),
+    ),
+    Tool(
+        name="check_payment",
+        description=(
+            "Check a payment/invoice status by checking_id or payment_hash for the "
+            "bound agent_wallet profile wallet."
+        ),
+        inputSchema=_schema(
+            {
+                "checking_id": {
+                    "type": "string",
+                    "description": "LNbits checking_id or payment_hash to look up.",
+                },
+            },
+            ["checking_id"],
         ),
     ),
     Tool(
