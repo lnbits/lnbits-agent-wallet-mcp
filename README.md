@@ -4,6 +4,15 @@ A small stdio MCP server for the LNbits `agent_wallet` extension runtime API.
 
 This project is intentionally narrow. It is **not** a generic LNbits wallet MCP and it does **not** use LNbits invoice/admin wallet keys. It only calls the LNbits `agent_wallet` extension's profile-scoped runtime endpoints. The `agent_wallet` extension remains the security boundary: profile lookup, ACL bearer-token authentication, policy enforcement, wallet selection, payment execution, and audit logging all happen inside LNbits.
 
+## Getting started
+
+1. Install the `agent_wallet` extension in LNbits.
+2. Create an agent profile in the extension.
+3. Copy the MCP config from the extension.
+4. Paste the config into your MCP client config.
+
+That's it — your MCP client can now use the LNbits agent wallet tools.
+
 ## What It Exposes
 
 The MCP surface is intentionally small:
@@ -54,14 +63,14 @@ Use `uvx` to run the package directly from git. This keeps the project uvx-ready
 LNBITS_URL=https://your-lnbits.example \
 LNBITS_AGENT_TOKEN=restricted-runtime-token \
 LNBITS_AGENT_PROFILE_ID=agent-wallet-profile-id \
-uvx --from git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git \
+uvx --from git+https://github.com/lnbits/lnbits-agent-wallet-mcp.git \
   lnbits-agent-wallet-mcp
 ```
 
 For a pinned revision, use:
 
 ```bash
-uvx --from git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git@<commit-sha> \
+uvx --from git+https://github.com/lnbits/lnbits-agent-wallet-mcp.git@<commit-sha> \
   lnbits-agent-wallet-mcp
 ```
 
@@ -90,7 +99,7 @@ Use this JSON shape for clients such as Claude Desktop, Codex, OpenCode/OpenClaw
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git",
+        "git+https://github.com/lnbits/lnbits-agent-wallet-mcp.git",
         "lnbits-agent-wallet-mcp"
       ],
       "env": {
@@ -115,7 +124,7 @@ Use the same server definition if your client supports MCP JSON configuration. I
 
 - Server name: `lnbits_agent_wallet`
 - Command: `uvx`
-- Arguments: `--from`, `git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git`, `lnbits-agent-wallet-mcp`
+- Arguments: `--from`, `git+https://github.com/lnbits/lnbits-agent-wallet-mcp.git`, `lnbits-agent-wallet-mcp`
 - Environment variables: `LNBITS_URL`, `LNBITS_AGENT_TOKEN`, `LNBITS_AGENT_PROFILE_ID`
 
 ### Hermes Example
@@ -128,7 +137,7 @@ mcp_servers:
     command: uvx
     args:
       - --from
-      - git+https://github.com/talvasconcelos/lnbits-agent-wallet-mcp.git
+      - git+https://github.com/lnbits/lnbits-agent-wallet-mcp.git
       - lnbits-agent-wallet-mcp
     env:
       LNBITS_URL: https://your-lnbits.example
@@ -143,11 +152,10 @@ Use this only while developing from a local clone:
 ```yaml
 mcp_servers:
   lnbits_agent_wallet:
-    command: uv
+    command: uvx
     args:
-      - --directory
+      - --from
       - /path/to/lnbits-agent-wallet-mcp
-      - run
       - lnbits-agent-wallet-mcp
     env:
       LNBITS_URL: https://your-lnbits.example
